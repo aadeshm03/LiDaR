@@ -28,10 +28,13 @@
 //#include <TFminiS.h>
 #include <TFMini.h>
 #include <ArduinoJson.h>
+
+#define TFMINI 
+
 //#define USE_SPI       // Uncomment this to use SPI
 
 #define SERIAL_PORT Serial
-
+#define 
 #define SPI_PORT SPI // Your desired SPI port.       Used only when "USE_SPI" is defined
 #define CS_PIN 2     // Which pin you connect CS to. Used only when "USE_SPI" is defined
 
@@ -112,6 +115,7 @@ void setup() {
     SERIAL_PORT.println(F("Enable DMP failed!"));
     while (1); // Do nothing more
   }
+
 
   // Initialize the LiDAR sensor (TFMini-S)
   //StaticJsonDocument<20000> doc;
