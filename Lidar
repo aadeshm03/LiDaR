@@ -1,0 +1,33 @@
+#include "TFMini.h"
+
+// Use hardware Serial1 for communication with the TFMini
+#define TFMINI Serial1
+
+TFMini tfmini;
+
+void setup() {
+  // Step 1: Initialize hardware serial port (Serial for debug)
+  Serial.begin(115200);
+  while (!Serial);  // Wait for the serial monitor to connect
+  
+  Serial.println("Initializing...");
+
+  // Step 2: Initialize the data rate for Serial1 (TFMini)
+  TFMINI.begin(TFMINI_BAUDRATE);
+
+  // Step 3: Initialize the TF Mini sensor
+  tfmini.begin(&TFMINI);
+}
+
+void loop() {
+  // Take one TF Mini distance measurement
+  uint16_t dist = tfmini.getDistance();
+  uint16_t strength = tfmini.getRecentSignalStrength();
+
+  // Display the measurement
+  Serial.print(dist + 4.7);
+  Serial.print(" cm ");
+  Serial.println(strength);
+  // Wait some short time before taking the next measurement
+  delay(50);
+}
