@@ -1,45 +1,14 @@
-/****************************************************************
-* Example6_DMP_Quat9_Orientation.ino
-* ICM 20948 Arduino Library Demo
-* Initialize the DMP based on the TDK InvenSense ICM20948_eMD_nucleo_1.0 example-icm20948
-* Paul Clark, April 25th, 2021
-* Based on original code by:
-* Owen Lyke @ SparkFun Electronics
-* Original Creation Date: April 17 2019
-* 
-* ** This example is based on InvenSense's _confidential_ Application Note "Programming Sequence for DMP Hardware Functions".
-* ** We are grateful to InvenSense for sharing this with us.
-* 
-* ** Important note: by default the DMP functionality is disabled in the library
-* ** as the DMP firmware takes up 14301 Bytes of program memory.
-* ** To use the DMP, you will need to:
-* ** Edit ICM_20948_C.h
-* ** Uncomment line 29: #define ICM_20948_USE_DMP
-* ** Save changes
-* ** If you are using Windows, you can find ICM_20948_C.h in:
-* ** Documents\Arduino\libraries\SparkFun_ICM-20948_ArduinoLibrary\src\util
-*
-* Please see License.md for the license information.
-*
-* Distributed as-is; no warranty is given.
-***************************************************************/
+
 
 #include "ICM_20948.h" // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20948_IMU
-//#include <TFminiS.h>
 #include <TFMini.h>
 
 #define TFMINI Serial1
-
-
-
-//#define USE_SPI       // Uncomment this to use SPI
 
 #define SERIAL_PORT Serial
 #define CS_PIN 2     // Which pin you connect CS to. Used only when "USE_SPI" is defined
 
 #define WIRE_PORT Wire // Your desired Wire port.      Used when "USE_SPI" is not defined
-// The value of the last bit of the I2C address.
-// On the SparkFun 9DoF IMU breakout the default is 1, and when the ADR jumper is closed the value becomes 0
 #define AD0_VAL 1
 
 ICM_20948_I2C myICM; // Otherwise create an ICM_20948_I2C object
@@ -64,10 +33,6 @@ void setup() {
     // Initialize the ICM-20948
 
     myICM.begin(WIRE_PORT, AD0_VAL);
-    //q0 = 1.0f;
-    //q1 = 0.0f;
-    //q2 = 0.0f;
-    //q3 = 0.0f;
     tfmini.begin(&Serial);
 
     if (myICM.status != ICM_20948_Stat_Ok) {
@@ -108,7 +73,6 @@ void setup() {
 void loop() {
   // Read DMP data from the FIFO
   icm_20948_DMP_data_t data;
-  //StaticJsonDocument<20000> doc;
   float angle = 35.0;  // 35 degrees, halved as per 3Blue1Brown's explanation
   float angle_rad = radians(angle);  // Convert to radians
 
@@ -154,12 +118,8 @@ void loop() {
       {2 * (q1 * q3 - q2 * q0), 2 * (q2 * q3 + q1 * q0), 1 - 2 * (q1 * q1 + q2 * q2)}
       }; // Define the lidarRay array std::array<double, 3> 
         
-      
-      // SERIAL_PORT.print("2");
       // Calculate the new lidar position
-      //double lidar_position[3];
-      
-      //
+
       for (int i = 0; i < 3; i++) { 
         for (int j = 0; j < 3; j++) {
           lidar_position[i] += R[i][j] * lidarRay[j];
