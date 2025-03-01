@@ -1,18 +1,26 @@
 #include <WiFi.h>
 
-#define PORT 8080
-#define BUFFER_SIZE 8192  // Increased buffer size
-#define DATA_BUFFER_SIZE 2048  // Size of the count buffer
+// ULTRASONIC SENSOR JUNK
+#include <HCSR04.h>
+byte triggerPin = 19;
+byte echoCount = 1;
+byte echoPin = 18;
 
-const char* ssid = "Brady";       // Replace with your WiFi SSID
-const char* password = "password"; // Replace with your WiFi password
+#define PORT 8080
+// #define BUFFER_SIZE 8192  // Increased buffer size
+#define DATA_BUFFER_SIZE 1024  // Size of the count buffer
+
+const char* ssid = "Basement";       // Replace with your WiFi SSID
+const char* password = "GnastyGnorc"; // Replace with your WiFi password
 
 WiFiServer server(PORT);
 int count = 0;  // Counter to keep track of occurrences
-int data_buffer1[DATA_BUFFER_SIZE];  // Buffer to store count values
+int dist_buffer[DATA_BUFFER_SIZE];  // Buffer to store count values
 int data_buffer2[DATA_BUFFER_SIZE];  // Buffer to store count values
 int data_index = 0;
 int last_sent_index = 0;  // Track the last sent index to avoid duplicates
+
+bool ClientConnected = false;
 
 void handle_client(void *param) {
     WiFiClient client = *((WiFiClient *)param);
@@ -33,40 +41,51 @@ void handle_client(void *param) {
         //     Serial.print("Message received: ");
         //     Serial.println(message);
         //     client.write(buffer, bytes_received);
-        // } else {
-            // Handle wrap-around scenario when count_index resets
-            String dataMessage = "{";
-            if (last_sent_index <= data_index) {
-                // Normal case: send counts from last_sent_index to count_index
-                for (int i = last_sent_index; i < data_index; i++) {
-                    dataMessage += "data1: " + String(data_buffer1[i]) + ",";
-                    dataMessage += "data2: " + String(data_buffer2[i]) + ",";
-                }
-            } else {
-                // Wrap-around case: send counts from last_sent_index to end, then from start to count_index
-                for (int i = last_sent_index; i < DATA_BUFFER_SIZE; i++) {
-                    dataMessage += "data1: " + String(data_buffer1[i]) + ",";
-                    dataMessage += "data2: " + String(data_buffer2[i]) + ",";
-                }
-                for (int i = 0; i < data_index; i++) {
-                    dataMessage += "data1: " + String(data_buffer1[i]) + ",";
-                    dataMessage += "data2: " + String(data_buffer2[i]) + ",";
-                }
-            }
-            dataMessage.remove(dataMessage.length() - 1);  // Remove the last comma
-            dataMessage += "}\n";
-            client.write((const uint8_t *)dataMessage.c_str(), dataMessage.length());
-            last_sent_index = data_index;  // Update the last sent index
-        }
-    }
+        // }
+
+      // Handle wrap-around scenario when data_index resets
+      uint8_t dataMessage[DATA_BUFFER_SIZE];
+      int messageIndex = 0;
+      if (last_sent_index < data_index) {
+          // Normal case: send counts from last_sent_index to data_index
+          for (int i = last_sent_index; i < data_index; i++) {
+              // Bitwise junk to send data as raw bytes instead of human readable strings
+              // Will need to be decoded manually client-side
+              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
+              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+          }
+      } else if (last_sent_index > data_index) {
+          // Wrap-around case: send counts from last_sent_index to end, then from start to data_index
+          for (int i = last_sent_index; i < DATA_BUFFER_SIZE; i++) {
+              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
+              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+          }
+          for (int i = 0; i < data_index; i++) {
+              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
+              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
+              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+          }
+      } else continue;
+
+      client.write(dataMessage, messageIndex);
+      last_sent_index = data_index;  // Update the last sent index
+  }
 
     client.stop();
+    ClientConnected = false;
     vTaskDelete(NULL);  // Delete the task when done
 }
 
 void setup() {
     Serial.begin(115200);
     delay(1000);
+
+    HCSR04.begin(triggerPin, echoPin); // ULTRASONIC
 
     // Connect to Wi-Fi
     Serial.println("Connecting to WiFi...");
@@ -87,21 +106,26 @@ void setup() {
 }
 
 void loop() {
-    WiFiClient client = server.available();
-    if (client) {
-        Serial.println("New client connected.");
-        WiFiClient *newClient = new WiFiClient(client);  // Allocate memory for the client
-        xTaskCreate(handle_client, "ClientHandler", BUFFER_SIZE*2, (void *)newClient, 2, NULL);  // Create FreeRTOS task with higher priority
+    // CONNECT CLIENTS
+    if (!ClientConnected) {
+        WiFiClient client = server.available();
+        if (client) {
+            ClientConnected = true;
+            Serial.println("New client connected.");
+            WiFiClient *newClient = new WiFiClient(client);  // Allocate memory for the client
+            xTaskCreate(handle_client, "ClientHandler", DATA_BUFFER_SIZE*4, (void *)newClient, 1, NULL);  // Create FreeRTOS task with higher priority
+        }
     }
+    
+    double* distance = HCSR04.measureDistanceCm();
 
-    // Count occurrences and store in the buffer if different from the last sent count
-    count++;
-    data_buffer1[count_index++] = count;
-    data_buffer2[count_index++] = count >> 2 ^ 0xA192;
+    dist_buffer[data_index] = (int) distance[0]; // ULTRASONIC DISTANCE CM 
+    data_buffer2[data_index++] = (int) distance[0] ^ 13; // RANDOM DATA
 
     // Reset the buffer index if it reaches the buffer size
-    if (count_index >= COUNT_BUFFER_SIZE) {
-        count_index = 0;
+    if (data_index >= DATA_BUFFER_SIZE) {
+        data_index = 0;
     }
-    delay(25);  // Short delay for loop efficiency
+    
+    delay(10);  // Short delay for loop efficiency
 }

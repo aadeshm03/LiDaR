@@ -8,7 +8,11 @@ def listen_for_messages(client_socket):
             if not response:
                 print("Server closed connection.")
                 break
-            print("{}".format(response.decode('utf-8')),end="")
+            data = {"dists": [], "data2": []}
+            for i in range(0, len(response), 4):
+                data["dists"].append(int.from_bytes(response[i:i+2]))
+                data["data2"].append(int.from_bytes(response[i+2:i+4]))
+            print(data)
         except Exception as e:
             print("Error receiving message: ", str(e))
             break
