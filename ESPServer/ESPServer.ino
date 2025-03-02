@@ -7,11 +7,11 @@ byte echoCount = 1;
 byte echoPin = 18;
 
 #define PORT 8080
-// #define BUFFER_SIZE 8192  // Increased buffer size
-#define DATA_BUFFER_SIZE 1024  // Size of the count buffer
+#define DATA_BUFFER_SIZE 512  // Size of the count buffer
+#define BUFFER_SIZE DATA_BUFFER_SIZE * 16  // Increased buffer size
 
-const char* ssid = "Basement";       // Replace with your WiFi SSID
-const char* password = "GnastyGnorc"; // Replace with your WiFi password
+const char* ssid = "Aadesh ";       // Replace with your WiFi SSID
+const char* password = "aadesh120"; // Replace with your WiFi password
 
 WiFiServer server(PORT);
 int count = 0;  // Counter to keep track of occurrences
@@ -44,35 +44,29 @@ void handle_client(void *param) {
         // }
 
       // Handle wrap-around scenario when data_index resets
-      uint8_t dataMessage[DATA_BUFFER_SIZE];
+      int dataMessage[2*DATA_BUFFER_SIZE];
       int messageIndex = 0;
       if (last_sent_index < data_index) {
           // Normal case: send counts from last_sent_index to data_index
           for (int i = last_sent_index; i < data_index; i++) {
               // Bitwise junk to send data as raw bytes instead of human readable strings
               // Will need to be decoded manually client-side
-              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
-              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i];
+              dataMessage[messageIndex++] = data_buffer2[i];
           }
       } else if (last_sent_index > data_index) {
           // Wrap-around case: send counts from last_sent_index to end, then from start to data_index
           for (int i = last_sent_index; i < DATA_BUFFER_SIZE; i++) {
-              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
-              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i];
+              dataMessage[messageIndex++] = data_buffer2[i];
           }
           for (int i = 0; i < data_index; i++) {
-              dataMessage[messageIndex++] = (dist_buffer[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = dist_buffer[i] & 0xFF;
-              dataMessage[messageIndex++] = (data_buffer2[i] >> 8) & 0xFF;
-              dataMessage[messageIndex++] = data_buffer2[i] & 0xFF;
+              dataMessage[messageIndex++] = dist_buffer[i];
+              dataMessage[messageIndex++] = data_buffer2[i];
           }
       } else continue;
 
-      client.write(dataMessage, messageIndex);
+      client.write((const uint8_t*) dataMessage, sizeof(int)*messageIndex);
       last_sent_index = data_index;  // Update the last sent index
   }
 
@@ -113,14 +107,14 @@ void loop() {
             ClientConnected = true;
             Serial.println("New client connected.");
             WiFiClient *newClient = new WiFiClient(client);  // Allocate memory for the client
-            xTaskCreate(handle_client, "ClientHandler", DATA_BUFFER_SIZE*4, (void *)newClient, 1, NULL);  // Create FreeRTOS task with higher priority
+            xTaskCreate(handle_client, "ClientHandler", BUFFER_SIZE, (void *)newClient, 1, NULL);  // Create FreeRTOS task with higher priority
         }
     }
     
     double* distance = HCSR04.measureDistanceCm();
 
     dist_buffer[data_index] = (int) distance[0]; // ULTRASONIC DISTANCE CM 
-    data_buffer2[data_index++] = (int) distance[0] ^ 13; // RANDOM DATA
+    data_buffer2[data_index++] = (int) (millis()); // RANDOM DATA
 
     // Reset the buffer index if it reaches the buffer size
     if (data_index >= DATA_BUFFER_SIZE) {
