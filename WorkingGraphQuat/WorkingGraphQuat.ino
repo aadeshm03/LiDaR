@@ -151,7 +151,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                     lidarChart.data.datasets[0].data.shift();
                 }
                 lidarChart.data.labels.push(currentTime);
-                lidarChart.data.datasets[0].data.push(distance);
+                lidarChart.data.datasets[0].data.push(data.ReorientedLidarDistance.toFixed(1));
                 lidarChart.update();
 
                 updateCubeOrientation(data.quat_w, data.quat_x, data.quat_y, data.quat_z);
@@ -213,21 +213,24 @@ ICM_20948_I2C myIMU;
 #define SCL_PIN_IMU 14
 #define SDA_PIN_LID 33
 #define SCL_PIN_LID 26
+#define SPEAKER 18
 
 
 float angle = 35.0;  // 35 degrees, halved as per 3Blue1Brown's explanation
 float angle_rad = radians(angle);
+float vertical_distance = 0;
 
 float lidarRay[3] = {
         cos(angle_rad),   // X position (scaled by distance from IMU)
         0,                // Y position (no offset)
-        sin(angle_rad),   // Z position (scaled by distance from IMU)
+        -sin(angle_rad),   // Z position (scaled by distance from IMU)
     };
+
 
 void setup() {
     Serial.begin(115200);
 
-    pinMode(15, OUTPUT);
+    pinMode(18, OUTPUT);
 
     // Connect to Wi-Fi
     WiFi.begin(ssid, password);
@@ -273,7 +276,7 @@ void setup() {
     });
 
     server.begin();
-}
+  }
 
 void loop() {
 
@@ -304,10 +307,17 @@ void loop() {
               }
 
             uint16_t distance = myLidar.getDistance();
-            float vertical_distance = lidar_position[2] * distance;  
-            if (vertical_distance < 5) {
-              tone(15, 440, 500);
-            }
+            vertical_distance = lidar_position[2] * distance;
+            
+            // Serial.print(lidar_position[0]);
+            // Serial.print(", ");
+            // Serial.print(lidar_position[1]);
+            // Serial.print(", ");
+            // Serial.print(lidar_position[2]);
+            // Serial.print(", ");
+            // Serial.print(distance);
+            // Serial.print(", ");
+            // Serial.println(vertical_distance);
 
             // Send data as JSON
             readings["quat_w"] = q0;
@@ -323,7 +333,14 @@ void loop() {
         }
     }
     
-    delay(10);
+    
+    if (vertical_distance < 100) {
+      tone(18, 440, 10);
+    } else if (vertical_distance > 170) {
+      tone(18, 100, 10);
+    } else {
+      delay(10);
+    }
 }
 
 // HTML Page for Web Dashboard
