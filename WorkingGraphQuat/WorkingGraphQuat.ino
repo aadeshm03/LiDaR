@@ -23,6 +23,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     <title>ESP32 IMU & LiDAR Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  <!-- Add Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.0.2"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -70,7 +71,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 <body>
     <div class="container">
         <h1>ESP32 Sensor Dashboard</h1>
-        <div class="data-section">
+        <!-- <div class="data-section">
             <h2>Quaternion (IMU)</h2>
             <ul>
                 <li>w: <span id="quat_w">0</span></li>
@@ -78,7 +79,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                 <li>y: <span id="quat_y">0</span></li>
                 <li>z: <span id="quat_z">0</span></li>
             </ul>
-        </div>
+        </div> -->
         <div class="data-section">
             <h2>LiDAR</h2>
             <ul>
@@ -104,6 +105,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 
             // Create the chart
             let ctx = document.getElementById("lidarChart").getContext("2d");
+
             lidarChart = new Chart(ctx, {
                 type: "line",
                 data: {
@@ -119,17 +121,37 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                 },
                 options: {
                     scales: {
-                        x: { title: { display: true, text: "Time (s)" } },
+                        // x: { title: { display: true, text: "Time (s)" } },
                         y: {
-                          title: { display: true, text: "Distance (cm)" },
-                          min: 0,
-                          max: 200,
-                          stepSize: 20,
+                            title: { display: true, text: "Distance (cm)" },
+                            min: 0,
+                            max: 200,
+                            stepSize: 20,
                         }
                     },
-                    animation: false
+                    animation: false,
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    yMin: 70,
+                                    yMax: 70,
+                                    borderColor: 'red',
+                                    borderWidth: 2,
+                                    borderDash: [10, 5],
+                                    label: {
+                                        content: 'Threshold',
+                                        enabled: true,
+                                        position: 'end'
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             });
+
 
             socket.onmessage = function (event) {
                 console.log("Received WebSocket data:", event.data);
@@ -138,11 +160,11 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                 let currentTime = (Date.now() / 1000).toFixed(1); // Convert to seconds
                 let distance = parseFloat(data.ReorientedLidarDistance);
 
-                document.getElementById("quat_w").innerText = data.quat_w.toFixed(3);
-                document.getElementById("quat_x").innerText = data.quat_x.toFixed(3);
-                document.getElementById("quat_y").innerText = data.quat_y.toFixed(3);
-                document.getElementById("quat_z").innerText = data.quat_z.toFixed(3);
-                document.getElementById("raw_distance").innerText = distance;
+                // document.getElementById("quat_w").innerText = data.quat_w.toFixed(3);
+                // document.getElementById("quat_x").innerText = data.quat_x.toFixed(3);
+                // document.getElementById("quat_y").innerText = data.quat_y.toFixed(3);
+                // document.getElementById("quat_z").innerText = data.quat_z.toFixed(3);
+                document.getElementById("raw_distance").innerText = distance.toFixed(1);;
                 document.getElementById("reoriented_distance").innerText = data.ReorientedLidarDistance.toFixed(1);
 
                 // Add new data point to the chart
@@ -150,7 +172,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                     lidarChart.data.labels.shift();
                     lidarChart.data.datasets[0].data.shift();
                 }
-                lidarChart.data.labels.push(currentTime);
+                lidarChart.data.labels.push("");
                 lidarChart.data.datasets[0].data.push(data.ReorientedLidarDistance.toFixed(1));
                 lidarChart.update();
 
@@ -182,7 +204,11 @@ const char htmlPage[] PROGMEM = R"rawliteral(
         ];
         const cube = new THREE.Mesh(geometry, materials);
         scene.add(cube);
-        camera.position.z = 2;
+        
+        camera.position.set(0, -2, 0);
+
+        // Make the camera look at the origin (0, 0, 0)
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
 
         function updateCubeOrientation(w, x, y, z) {
             const quat = new THREE.Quaternion(x, y, z, w);
@@ -213,7 +239,7 @@ ICM_20948_I2C myIMU;
 #define SCL_PIN_IMU 14
 #define SDA_PIN_LID 33
 #define SCL_PIN_LID 26
-#define SPEAKER 18
+#define SPEAKER 15
 
 
 float angle = 35.0;  // 35 degrees, halved as per 3Blue1Brown's explanation
@@ -230,7 +256,7 @@ float lidarRay[3] = {
 void setup() {
     Serial.begin(115200);
 
-    pinMode(18, OUTPUT);
+    pinMode(SPEAKER, OUTPUT);
 
     // Connect to Wi-Fi
     WiFi.begin(ssid, password);
@@ -334,10 +360,10 @@ void loop() {
     }
     
     
-    if (vertical_distance < 100) {
-      tone(18, 440, 10);
-    } else if (vertical_distance > 170) {
-      tone(18, 100, 10);
+    if (vertical_distance < 70) {
+      tone(SPEAKER, 440, 10);
+    // } else if (vertical_distance > 170) {
+    //   tone(SPEAKER, 100, 10);
     } else {
       delay(10);
     }
