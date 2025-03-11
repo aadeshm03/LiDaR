@@ -9,8 +9,8 @@
 
 
 // Wi-Fi Credentials
-const char* ssid = "Aadesh ";
-const char* password = "aadesh120";
+const char* ssid = "Basement";
+const char* password = "GnastyGnorc";
 
 JSONVar readings;
 
@@ -309,9 +309,10 @@ void loop() {
     
     icm_20948_DMP_data_t data;
     myIMU.readDMPdataFromFIFO(&data);
-    
+    long sendDelay = 0;
+
     if (myIMU.status == ICM_20948_Stat_Ok) {
-        if ((data.header & DMP_header_bitmap_Quat9) > 0) {
+        //if ((data.header & DMP_header_bitmap_Quat9) > 0) {
             
             double q1 = ((double)data.Quat9.Data.Q1) / 1073741824.0;
             double q2 = ((double)data.Quat9.Data.Q2) / 1073741824.0;
@@ -353,19 +354,20 @@ void loop() {
             readings["RawLidarDistance"] = distance;
             readings["ReorientedLidarDistance"] = vertical_distance;
 
-            
-
+            // Serial.println(JSON.stringify(readings));
+            sendDelay = millis();
             ws.textAll(JSON.stringify(readings));
-        }
+            sendDelay = millis() - sendDelay;
+        //}
     }
     
     
     if (vertical_distance < 70) {
-      tone(SPEAKER, 440, 10);
+      tone(SPEAKER, 440, 10-sendDelay);
     // } else if (vertical_distance > 170) {
     //   tone(SPEAKER, 100, 10);
     } else {
-      delay(10);
+      delay(10-sendDelay);
     }
 }
 
