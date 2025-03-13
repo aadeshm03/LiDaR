@@ -1,0 +1,81 @@
+import serial
+import csv
+import time
+import os
+
+# Configure the serial connection
+SERIAL_PORT = "COM14"  # Change this to match your ESP32's port
+BAUD_RATE = 115200
+CSV_FILE = "C:\\Users\\User\\OneDrive - UBC\\Desktop\\BMEG 457\\OnPerson_Tests\\test.csv"
+
+def save_to_csv(data, filename):
+    # Define CSV headers
+    headers = ["Raw_Lidar","ReorientedLidarDistance", "time"]
+    
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+    
+    # Open the CSV file in append mode
+    file_exists = os.path.isfile(filename)
+    with open(filename, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        
+        # Write headers if file is empty or doesn't exist
+        if not file_exists or file.tell() == 0:
+            writer.writerow(headers)
+        
+        # Write the data
+        writer.writerow(data)
+        print(f"Data saved to {filename}")
+
+def parse_data(line):
+    # Remove curly braces and split by commas
+    clean_line = line.strip().replace('{', '').replace('}', '')
+    values = [value.strip() for value in clean_line.split(',')]
+    
+    # Convert to appropriate types
+    try:
+        data = [
+            float(values[4]),  # Raw_lidar
+            float(values[5]),  # ReorientedLidarDistance
+            int(values[6])     # time
+        ]
+        return data
+    except (IndexError, ValueError) as e:
+        print(f"Error parsing data: {e}")
+        return None
+
+def main():
+    # Print current working directory for debugging
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"CSV will be saved to: {os.path.abspath(CSV_FILE)}")
+    
+    try:
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+        print(f"Listening on {SERIAL_PORT} at {BAUD_RATE} baud...")
+        
+        while True:
+            try:
+                line = ser.readline().decode('utf-8').strip()
+                if line:
+                    print("Received:", line)
+                    
+                    # Parse the data directly instead of using JSON
+                    data = parse_data(line)
+                    if data:
+                        save_to_csv(data, CSV_FILE)
+                    
+            except Exception as e:
+                print("Error processing data:", e)
+                
+    except serial.SerialException as e:
+        print("Serial connection error:", e)
+    except KeyboardInterrupt:
+        print("Program terminated by user.")
+    finally:
+        if 'ser' in locals() and ser.is_open:
+            ser.close()
+            print("Serial port closed.")
+
+if __name__ == "__main__":
+    main()
