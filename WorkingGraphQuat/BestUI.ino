@@ -51,15 +51,19 @@ const char htmlPage[] PROGMEM = R"rawliteral(
         ul {
             list-style: none;
             padding: 0;
+            width: 50%;
+            margin: 0 auto;
         }
         li {
-            background: #F9F7F3;
-            margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 20px;
-            font-weight: bold;
+          background: #F9F7F3;
+          margin: 2px 0;  /* Reduce margin for shorter spacing */
+          padding: 5px;   /* Reduce padding for a more compact look */
+          border-radius: 5px;
+          font: bold 16px Arial;  /* Smaller font size */
+          text-align: center;
+          
         }
+
         span {
             font-weight: bold;
             font-size: 20px;
@@ -92,17 +96,23 @@ const char htmlPage[] PROGMEM = R"rawliteral(
             <h2>Torso Height</h2>
             <ul>
                 <li>Raw Distance: <span id="raw_distance">0</span> cm</li>
-                <li>Reoriented Distance: <span id="reoriented_distance">0</span> cm</li>
+                <li>Torso Height: <span id="reoriented_distance">0</span> cm</li>
             </ul>
         </div>
         
         <h2>Torso Height Over Time</h2>
         <canvas id="lidarChart"></canvas> <!-- Chart for LiDAR distance -->
 
-        <h2>3D Orientation</h2>
+        <h2>Torso pose</h2>
         <div id="cube-container"></div>
-        <h2> Time in Range </h2>
+        <h2> Percentage of time in Range </h2>
         <canvas id="percentRange"> </canvas>
+        <div class="data-section">
+          <ul>
+              <li>Percent in Range: <span id="percentDisplay">0% </span> </li>
+              <li id="percentMessage">Waiting for data...</li>
+          </ul>
+        </div>
         <button id="downloadCSV" style="margin-top: 20px; padding: 15px; background-color: #0FA3B1; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 20px; font-weight: bold;">
             Download CSV
         </button>
@@ -120,6 +130,12 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     let lowerBound = 40;
     let upperBound = 80; 
     let collectedData = []; // Store received data for CSV
+    let messageTimer;
+    let messages = [
+        "AMAZING. KEEP IT GOING!",
+        "WOW. SO GOOD.",
+        "great start. Don't be afraid to take your time!"
+        ];
 
     document.addEventListener("DOMContentLoaded", () => {
         socket = new WebSocket("ws://" + location.host + "/ws");
@@ -146,6 +162,12 @@ const char htmlPage[] PROGMEM = R"rawliteral(
               responsive: true,
               animation: false,  // Disable animation
               plugins: {
+                  
+
+
+
+
+
                   legend: {
                       position: 'top', // You can change 'top', 'left', 'bottom', or 'right'
                       labels: {
@@ -157,7 +179,7 @@ const char htmlPage[] PROGMEM = R"rawliteral(
                       },
                   },
               },
-              scales: {
+                scales: {
                   y: {
                       title: {
                           display: true,
@@ -249,6 +271,8 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 
             percentChart.data.datasets[0].data = [inRangePercent, tooHighRangePercent, tooLowRangePercent];
             percentChart.update();
+            updateMessage(inRangePercent);
+            document.getElementById("percentDisplay").innerText = `${inRangePercent}%`
             };
 
         socket.onclose = function () {
@@ -272,6 +296,25 @@ const char htmlPage[] PROGMEM = R"rawliteral(
             document.body.removeChild(link);
         });
     });
+
+    function updateMessage(percent) {
+      clearTimeout(messageTimer);
+
+      let message = "";
+      if (percent >= 80) {
+          message = messages[0]; // "AMAZING. KEEP IT GOING!"
+      } else if (percent <= 50 && percent < 80) {
+          message = messages[1]; // "WOW. SO GOOD."
+      } else {
+          message = messages[2]; // "great start. Don't be afraid to take your time!"
+      }
+
+      document.getElementById("percentMessage").innerText = message;
+
+      messageTimer = setTimeout(() => {
+          updateMessage(percent); // Recursively update the message every 2 seconds
+      }, 2000);
+    }
 
     // 3D Cube with Three.js
     const scene = new THREE.Scene();
